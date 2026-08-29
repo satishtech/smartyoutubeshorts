@@ -68,7 +68,7 @@ def detect_highlights(
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     try:
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-5",
             max_tokens=2048,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
