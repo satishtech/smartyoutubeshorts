@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import { ShortsGrid } from '../components/ShortsGrid/ShortsGrid';
 import * as shortService from '../services/shortService';
+import api from '../services/api';
 import type { Short } from '../types';
 
 vi.mock('../services/shortService', async () => {
@@ -13,7 +14,16 @@ vi.mock('../services/shortService', async () => {
   };
 });
 
+vi.mock('../services/api', async () => {
+  const actual = await vi.importActual<typeof import('../services/api')>('../services/api');
+  return {
+    ...actual,
+    default: { ...actual.default, get: vi.fn() },
+  };
+});
+
 const mockedShortService = vi.mocked(shortService);
+const mockedApiGet = vi.mocked(api.get);
 
 function makeShort(overrides: Partial<Short> = {}): Short {
   return {
@@ -35,6 +45,7 @@ describe('ShortsGrid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedShortService.downloadAuthenticatedFile.mockResolvedValue(undefined);
+    mockedApiGet.mockResolvedValue({ data: new Blob(['fake-video']) });
   });
 
   test('shows an empty state when there are no shorts', () => {
