@@ -169,7 +169,7 @@ export default function ProjectWorkspace() {
                   <p className="text-sm text-gray-500">No highlight segments detected yet.</p>
                   <GradientButton
                     isLoading={isDetecting}
-                    onClick={() => void detectHighlights()}
+                    onClick={() => void detectHighlights(project?.num_shorts_requested)}
                   >
                     Detect Highlights
                   </GradientButton>
