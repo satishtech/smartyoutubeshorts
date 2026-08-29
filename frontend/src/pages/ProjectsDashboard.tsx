@@ -9,7 +9,10 @@ import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { Spinner } from '../components/ui/Spinner';
 import { TextReveal } from '../components/ui/TextReveal';
 import { useProjects } from '../hooks/useProjects';
+import { useAuthenticatedMediaSrc } from '../hooks/useAuthenticatedMediaSrc';
+import { getProjectThumbnailUrl } from '../services/projectService';
 import { formatDate } from '../lib/utils';
+import type { Project } from '../types';
 
 export default function ProjectsDashboard() {
   const { projects, isLoading, error } = useProjects();
@@ -43,24 +46,41 @@ export default function ProjectsDashboard() {
         ) : (
           <AnimatedList className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <Link key={project.id} to={`/projects/${project.id}`} className="block h-full">
-                <GlassCard className="flex h-full flex-col gap-3">
-                  <div className="flex aspect-video w-full items-center justify-center rounded-xl bg-gradient-to-br from-purple-200 to-pink-200 text-3xl text-white">
-                    🎬
-                  </div>
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate text-sm font-semibold text-gray-800">{project.title}</h3>
-                    <StatusBadge status={project.status} />
-                  </div>
-                  <p className="mt-auto text-xs text-gray-400">
-                    Created {formatDate(project.created_at)}
-                  </p>
-                </GlassCard>
-              </Link>
+              <ProjectCard key={project.id} project={project} />
             ))}
           </AnimatedList>
         )}
       </div>
     </PageWrapper>
+  );
+}
+
+function ProjectCard({ project }: { project: Project }) {
+  const thumbnailUrl = project.has_thumbnail ? getProjectThumbnailUrl(project.id) : null;
+  const { src: thumbnailSrc } = useAuthenticatedMediaSrc(thumbnailUrl);
+
+  return (
+    <Link to={`/projects/${project.id}`} className="block h-full">
+      <GlassCard className="flex h-full flex-col gap-3">
+        {thumbnailSrc ? (
+          <img
+            src={thumbnailSrc}
+            alt={project.title}
+            className="aspect-video w-full rounded-xl object-cover"
+          />
+        ) : (
+          <div className="flex aspect-video w-full items-center justify-center rounded-xl bg-gradient-to-br from-purple-200 to-pink-200 text-3xl text-white">
+            🎬
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="truncate text-sm font-semibold text-gray-800">{project.title}</h3>
+          <StatusBadge status={project.status} />
+        </div>
+        <p className="mt-auto text-xs text-gray-400">
+          Created {formatDate(project.created_at)}
+        </p>
+      </GlassCard>
+    </Link>
   );
 }

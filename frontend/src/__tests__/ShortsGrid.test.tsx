@@ -35,6 +35,10 @@ function makeShort(overrides: Partial<Short> = {}): Short {
     duration_seconds: 45,
     has_subtitles: true,
     has_broll: false,
+    has_thumbnail: false,
+    highlight_title: null,
+    highlight_start_time: null,
+    highlight_end_time: null,
     status: 'ready',
     title: 'Best Moment',
     ...overrides,
@@ -87,5 +91,32 @@ describe('ShortsGrid', () => {
     await user.click(screen.getByRole('button', { name: /download/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/network down/i);
+  });
+
+  test('renders the linked highlight excerpt and trimmed duration range', () => {
+    render(
+      <ShortsGrid
+        shorts={[
+          makeShort({
+            highlight_title: 'The moment everything clicked',
+            highlight_start_time: 78,
+            highlight_end_time: 138,
+          }),
+        ]}
+      />
+    );
+    expect(screen.getByText('The moment everything clicked')).toBeInTheDocument();
+    expect(screen.getByText('1:18 – 2:18')).toBeInTheDocument();
+  });
+
+  test('fetches an authenticated poster image when the short has a thumbnail', async () => {
+    render(<ShortsGrid shorts={[makeShort({ has_thumbnail: true })]} />);
+
+    await waitFor(() => {
+      expect(mockedApiGet).toHaveBeenCalledWith(
+        shortService.getShortThumbnailUrl(1),
+        expect.objectContaining({ responseType: 'blob' })
+      );
+    });
   });
 });

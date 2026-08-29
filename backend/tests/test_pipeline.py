@@ -182,3 +182,106 @@ def test_run_shorts_generation_pipeline_render_failure_marks_failed(db, project,
 def test_run_import_pipeline_missing_project_is_noop(db):
     # Should not raise even though project 999999 doesn't exist.
     pipeline.run_import_pipeline(999999)
+
+
+def test_run_import_pipeline_generates_project_thumbnail(db, test_user, monkeypatch, tmp_path):
+    video_path = tmp_path / "source.mp4"
+    video_path.write_bytes(b"fake")
+
+    project = Project(
+        user_id=test_user.id,
+        title="Uploaded",
+        source_type=SourceType.upload,
+        source_video_path=str(video_path),
+        duration_seconds=100.0,
+        status=ProjectStatus.pending,
+        num_shorts_requested=3,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    thumb_calls = []
+
+    def _fake_thumbnail(video_path, dest_path, at_seconds=0.5):
+        thumb_calls.append((video_path, dest_path, at_seconds))
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest_path.write_bytes(b"fake jpg")
+        return dest_path
+
+    monkeypatch.setattr(pipeline.video_render, "generate_thumbnail", _fake_thumbnail)
+    monkeypatch.setattr(
+        pipeline,
+        "transcribe_video",
+        lambda path: {"full_text": "hi", "segments": [], "language": "en"},
+    )
+
+    pipeline.run_import_pipeline(project.id)
+
+    db.refresh(project)
+    assert project.thumbnail_path is not None
+    assert Path(project.thumbnail_path).exists()
+    assert len(thumb_calls) == 1
+    assert thumb_calls[0][2] == pytest.approx(10.0)  # 10% of 100s duration
+
+
+def test_run_import_pipeline_thumbnail_failure_is_non_fatal(db, test_user, monkeypatch, tmp_path):
+    video_path = tmp_path / "source.mp4"
+    video_path.write_bytes(b"fake")
+
+    project = Project(
+        user_id=test_user.id,
+        title="Uploaded",
+        source_type=SourceType.upload,
+        source_video_path=str(video_path),
+        duration_seconds=50.0,
+        status=ProjectStatus.pending,
+        num_shorts_requested=3,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    def _boom(video_path, dest_path, at_seconds=0.5):
+        raise RuntimeError("ffmpeg thumbnail extraction exploded")
+
+    monkeypatch.setattr(pipeline.video_render, "generate_thumbnail", _boom)
+    monkeypatch.setattr(
+        pipeline,
+        "transcribe_video",
+        lambda path: {"full_text": "hi", "segments": [], "language": "en"},
+    )
+
+    pipeline.run_import_pipeline(project.id)
+
+    db.refresh(project)
+    assert project.thumbnail_path is None
+    assert project.status == ProjectStatus.ready_for_review  # pipeline still succeeds overall
+
+
+def test_run_shorts_generation_pipeline_passes_output_layout(db, project, highlight, transcript, monkeypatch):
+    from app.models.project import OutputLayout
+
+    project.output_layout = OutputLayout.square_1_1
+    db.add(project)
+    db.commit()
+
+    captured = {}
+
+    def _fake_render_short(source_video_path, start_time, end_time, dest_path, **kwargs):
+        captured["output_layout"] = kwargs.get("output_layout")
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest_path.write_bytes(b"fake rendered video")
+        return dest_path
+
+    def _fake_thumbnail(video_path, dest_path, **kwargs):
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest_path.write_bytes(b"fake jpg")
+        return dest_path
+
+    monkeypatch.setattr(pipeline.video_render, "render_short", _fake_render_short)
+    monkeypatch.setattr(pipeline.video_render, "generate_thumbnail", _fake_thumbnail)
+
+    pipeline.run_shorts_generation_pipeline(project.id)
+
+    assert captured["output_layout"] == OutputLayout.square_1_1

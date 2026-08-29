@@ -1,4 +1,4 @@
-"""Short routes: generate (ffmpeg), list, stream, download, and project-wide ZIP export."""
+"""Short routes: generate (ffmpeg), list, stream, download, thumbnail, and project-wide ZIP export."""
 import io
 import logging
 import zipfile
@@ -44,6 +44,26 @@ def _get_owned_short(db: Session, short_id: int, user: User) -> Short:
     return short
 
 
+def _build_short_response(short: Short) -> ShortResponse:
+    """Build a ShortResponse, joining in the linked HighlightSegment's title/timing."""
+    highlight = short.highlight_segment
+    return ShortResponse(
+        id=short.id,
+        project_id=short.project_id,
+        highlight_segment_id=short.highlight_segment_id,
+        duration_seconds=short.duration_seconds,
+        has_subtitles=short.has_subtitles,
+        has_broll=short.has_broll,
+        has_thumbnail=bool(short.thumbnail_path),
+        status=short.status,
+        highlight_title=highlight.title if highlight else None,
+        highlight_start_time=highlight.start_time if highlight else None,
+        highlight_end_time=highlight.end_time if highlight else None,
+        created_at=short.created_at,
+        updated_at=short.updated_at,
+    )
+
+
 @projects_router.post("/{project_id}/shorts/generate", status_code=202, response_model=dict)
 async def generate_shorts(
     project_id: int,
@@ -83,10 +103,11 @@ async def generate_shorts(
 @projects_router.get("/{project_id}/shorts", response_model=list[ShortResponse])
 async def list_shorts(
     project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
-) -> list[Short]:
+) -> list[ShortResponse]:
     """List all Shorts generated for a project."""
     _get_owned_project(db, project_id, current_user)
-    return db.query(Short).filter(Short.project_id == project_id).all()
+    shorts = db.query(Short).filter(Short.project_id == project_id).all()
+    return [_build_short_response(s) for s in shorts]
 
 
 def _iter_file_range(path: Path, start: int, end: int):
@@ -148,6 +169,28 @@ async def download_short(
         raise NotFoundError("Short file")
     filename = f"short_{short.id}.mp4"
     return FileResponse(short.file_path, media_type="video/mp4", filename=filename)
+
+
+@projects_router.get("/{project_id}/thumbnail")
+async def get_project_thumbnail(
+    project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> FileResponse:
+    """Stream a project's thumbnail JPEG."""
+    project = _get_owned_project(db, project_id, current_user)
+    if not project.thumbnail_path or not Path(project.thumbnail_path).exists():
+        raise NotFoundError("Project thumbnail")
+    return FileResponse(project.thumbnail_path, media_type="image/jpeg")
+
+
+@shorts_router.get("/{short_id}/thumbnail")
+async def get_short_thumbnail(
+    short_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> FileResponse:
+    """Stream a Short's thumbnail JPEG."""
+    short = _get_owned_short(db, short_id, current_user)
+    if not short.thumbnail_path or not Path(short.thumbnail_path).exists():
+        raise NotFoundError("Short thumbnail")
+    return FileResponse(short.thumbnail_path, media_type="image/jpeg")
 
 
 @projects_router.get("/{project_id}/download-zip")

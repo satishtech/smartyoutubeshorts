@@ -21,6 +21,10 @@ def source_video_path(project_id: int, filename: str) -> Path:
     return project_dir(project_id) / f"source{Path(filename).suffix or '.mp4'}"
 
 
+def project_thumbnail_path(project_id: int) -> Path:
+    return project_dir(project_id) / "thumbnail.jpg"
+
+
 def resolve(path_str: str) -> Path:
     """Resolve a stored relative/absolute path string to a Path."""
     p = Path(path_str)

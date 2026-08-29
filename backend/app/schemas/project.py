@@ -1,9 +1,9 @@
 """Project schemas."""
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
-from app.models.project import ProjectStatus, SourceType
+from app.models.project import OutputLayout, ProjectStatus, SourceType
 
 
 class ProjectCreateJSON(BaseModel):
@@ -14,6 +14,7 @@ class ProjectCreateJSON(BaseModel):
     num_shorts_requested: int = Field(default=3, ge=1, le=10)
     burn_subtitles: bool = True
     use_broll: bool = False
+    output_layout: OutputLayout = OutputLayout.vertical_9_16
 
 
 class ProjectResponse(BaseModel):
@@ -28,10 +29,17 @@ class ProjectResponse(BaseModel):
     num_shorts_requested: int
     burn_subtitles: bool
     use_broll: bool
+    output_layout: OutputLayout
+    thumbnail_path: str | None = Field(exclude=True, default=None)
     created_at: datetime
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def has_thumbnail(self) -> bool:
+        return bool(self.thumbnail_path)
 
 
 class ProjectStatusResponse(BaseModel):

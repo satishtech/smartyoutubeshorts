@@ -18,7 +18,7 @@ from app.models.short import Short, ShortStatus
 from app.models.transcript import Transcript
 from app.services import highlight_detection, video_render, youtube_import
 from app.services.ffmpeg_utils import probe_duration_seconds
-from app.services.storage import project_dir, shorts_dir
+from app.services.storage import project_dir, project_thumbnail_path, shorts_dir
 from app.services.transcription import transcribe_video
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,7 @@ def run_import_pipeline(project_id: int) -> None:
                     db.commit()
                     db.refresh(project)
 
+            _generate_project_thumbnail(db, project)
             _run_transcription(db, project)
         except AppException as exc:
             logger.error("Import pipeline failed for project %s: %s", project_id, exc.message)
@@ -69,6 +70,25 @@ def run_import_pipeline(project_id: int) -> None:
             _set_status(db, project, ProjectStatus.failed, f"Unexpected error: {exc}")
     finally:
         db.close()
+
+
+def _generate_project_thumbnail(db: Session, project: Project) -> None:
+    """Extract one representative frame (~10% into the video) as the project's thumbnail.
+
+    Best-effort: a thumbnail failure must not fail the whole import pipeline.
+    """
+    if not project.source_video_path:
+        return
+    try:
+        at_seconds = (project.duration_seconds or 5.0) * 0.1
+        thumb_path = project_thumbnail_path(project.id)
+        video_render.generate_thumbnail(Path(project.source_video_path), thumb_path, at_seconds=at_seconds)
+        project.thumbnail_path = str(thumb_path)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+    except Exception:  # noqa: BLE001 - thumbnail generation is non-critical
+        logger.warning("Failed to generate thumbnail for project %s", project.id, exc_info=True)
 
 
 def _run_transcription(db: Session, project: Project) -> None:
@@ -182,6 +202,7 @@ def run_shorts_generation_pipeline(project_id: int, highlight_ids: list[int] | N
                         dest_path=dest,
                         transcript_segments=segments,
                         burn_subtitles=project.burn_subtitles,
+                        output_layout=project.output_layout,
                     )
                     video_render.generate_thumbnail(dest, thumb)
 

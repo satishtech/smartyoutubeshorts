@@ -5,7 +5,12 @@ import { StatusBadge } from '../ui/StatusBadge';
 import { ErrorMessage } from '../ui/ErrorMessage';
 import { Spinner } from '../ui/Spinner';
 import { getErrorMessage } from '../../services/api';
-import { downloadAuthenticatedFile, getShortDownloadUrl, getShortStreamUrl } from '../../services/shortService';
+import {
+  downloadAuthenticatedFile,
+  getShortDownloadUrl,
+  getShortStreamUrl,
+  getShortThumbnailUrl,
+} from '../../services/shortService';
 import { useAuthenticatedMediaSrc } from '../../hooks/useAuthenticatedMediaSrc';
 import { formatDuration } from '../../lib/utils';
 import type { Short } from '../../types';
@@ -39,6 +44,12 @@ function ShortCard({ short }: { short: Short }) {
   const { src: videoSrc, isLoading: isVideoLoading, error: videoError } =
     useAuthenticatedMediaSrc(streamUrl);
 
+  const thumbnailUrl = short.has_thumbnail ? getShortThumbnailUrl(short.id) : null;
+  const { src: posterSrc } = useAuthenticatedMediaSrc(thumbnailUrl);
+
+  const hasTrimmedRange =
+    short.highlight_start_time !== null && short.highlight_end_time !== null;
+
   const handleDownload = async () => {
     setDownloadingId(short.id);
     setDownloadError(null);
@@ -67,7 +78,13 @@ function ShortCard({ short }: { short: Short }) {
               {videoError ?? 'Preview unavailable.'}
             </div>
           ) : (
-            <video controls preload="metadata" className="h-full w-full object-cover" src={videoSrc}>
+            <video
+              controls
+              preload="metadata"
+              className="h-full w-full object-cover"
+              src={videoSrc}
+              poster={posterSrc ?? undefined}
+            >
               Your browser does not support video playback.
             </video>
           )
@@ -85,6 +102,15 @@ function ShortCard({ short }: { short: Short }) {
         <h4 className="truncate text-sm font-semibold text-gray-800">
           {short.title ?? `Short #${short.id}`}
         </h4>
+        {short.highlight_title && (
+          <p className="line-clamp-2 text-xs text-gray-500">{short.highlight_title}</p>
+        )}
+        {hasTrimmedRange && (
+          <p className="text-xs font-medium text-gray-400">
+            {formatDuration(short.highlight_start_time as number)} –{' '}
+            {formatDuration(short.highlight_end_time as number)}
+          </p>
+        )}
         {(short.has_subtitles || short.has_broll) && (
           <div className="flex flex-wrap gap-1.5">
             {short.has_subtitles && (

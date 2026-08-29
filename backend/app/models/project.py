@@ -31,6 +31,14 @@ class ProjectStatus(str, enum.Enum):
     failed = "failed"
 
 
+class OutputLayout(str, enum.Enum):
+    vertical_9_16 = "vertical_9_16"
+    square_1_1 = "square_1_1"
+    portrait_4_5 = "portrait_4_5"
+    landscape_16_9 = "landscape_16_9"
+    classic_4_3 = "classic_4_3"
+
+
 class Project(Base, TimestampMixin):
     __tablename__ = "projects"
 
@@ -48,6 +56,10 @@ class Project(Base, TimestampMixin):
     num_shorts_requested: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     burn_subtitles: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     use_broll: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    output_layout: Mapped[OutputLayout] = mapped_column(
+        Enum(OutputLayout), default=OutputLayout.vertical_9_16, server_default="vertical_9_16", nullable=False
+    )
+    thumbnail_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="projects")
     transcript: Mapped["Transcript | None"] = relationship(

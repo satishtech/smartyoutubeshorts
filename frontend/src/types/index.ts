@@ -43,6 +43,13 @@ export type ProjectStatus =
   | 'completed'
   | 'failed';
 
+export type OutputLayout =
+  | 'vertical_9_16'
+  | 'square_1_1'
+  | 'portrait_4_5'
+  | 'landscape_16_9'
+  | 'classic_4_3';
+
 export interface Project {
   id: number;
   user_id: number;
@@ -56,6 +63,8 @@ export interface Project {
   num_shorts_requested: number;
   burn_subtitles: boolean;
   use_broll: boolean;
+  output_layout: OutputLayout;
+  has_thumbnail: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +76,7 @@ export interface CreateProjectPayload {
   num_shorts_requested: number;
   burn_subtitles: boolean;
   use_broll: boolean;
+  output_layout: OutputLayout;
   file?: File;
 }
 
@@ -137,6 +147,10 @@ export interface Short {
   duration_seconds: number;
   has_subtitles: boolean;
   has_broll: boolean;
+  has_thumbnail: boolean;
+  highlight_title: string | null;
+  highlight_start_time: number | null;
+  highlight_end_time: number | null;
   status: ShortStatus;
   title?: string;
 }

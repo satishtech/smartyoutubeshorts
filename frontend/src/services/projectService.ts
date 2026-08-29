@@ -1,4 +1,4 @@
-import api from './api';
+import api, { API_BASE_URL } from './api';
 import type { CreateProjectPayload, Project, ProjectListResponse, ProjectStatusResponse } from '../types';
 
 export async function listProjects(): Promise<Project[]> {
@@ -28,6 +28,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Proj
     form.append('num_shorts_requested', String(payload.num_shorts_requested));
     form.append('burn_subtitles', String(payload.burn_subtitles));
     form.append('use_broll', String(payload.use_broll));
+    form.append('output_layout', payload.output_layout);
     form.append('file', payload.file);
 
     const { data } = await api.post<Project>('/projects', form, {
@@ -43,6 +44,11 @@ export async function createProject(payload: CreateProjectPayload): Promise<Proj
     num_shorts_requested: payload.num_shorts_requested,
     burn_subtitles: payload.burn_subtitles,
     use_broll: payload.use_broll,
+    output_layout: payload.output_layout,
   });
   return data;
+}
+
+export function getProjectThumbnailUrl(projectId: number): string {
+  return `${API_BASE_URL}/projects/${projectId}/thumbnail`;
 }

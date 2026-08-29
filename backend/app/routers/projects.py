@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.exceptions import BadRequestError, ForbiddenError, NotFoundError
-from app.models.project import Project, ProjectStatus, SourceType
+from app.models.project import OutputLayout, Project, ProjectStatus, SourceType
 from app.models.user import User
 from app.schemas.project import ProjectListResponse, ProjectResponse, ProjectStatusResponse
 from app.services.pipeline import run_import_pipeline
@@ -45,6 +45,7 @@ async def create_project(
     num_shorts_requested: int
     burn_subtitles: bool
     use_broll: bool
+    output_layout_raw: str
     upload_file = None
 
     if content_type.startswith("multipart/form-data"):
@@ -54,6 +55,7 @@ async def create_project(
         num_shorts_requested = int(form.get("num_shorts_requested") or 3)
         burn_subtitles = to_bool(form.get("burn_subtitles"), default=True)
         use_broll = to_bool(form.get("use_broll"), default=False)
+        output_layout_raw = form.get("output_layout") or OutputLayout.vertical_9_16.value
         candidate = form.get("file")
         if candidate is not None and getattr(candidate, "filename", None):
             upload_file = candidate
@@ -64,11 +66,18 @@ async def create_project(
         num_shorts_requested = int(body.get("num_shorts_requested") or 3)
         burn_subtitles = bool(body.get("burn_subtitles", True))
         use_broll = bool(body.get("use_broll", False))
+        output_layout_raw = body.get("output_layout") or OutputLayout.vertical_9_16.value
     else:
         raise BadRequestError("Content-Type must be multipart/form-data or application/json")
 
     if not (1 <= num_shorts_requested <= 10):
         raise BadRequestError("num_shorts_requested must be between 1 and 10")
+
+    try:
+        output_layout = OutputLayout(output_layout_raw)
+    except ValueError as exc:
+        allowed = ", ".join(v.value for v in OutputLayout)
+        raise BadRequestError(f"Invalid output_layout '{output_layout_raw}'. Allowed: {allowed}") from exc
 
     if upload_file and youtube_url:
         raise BadRequestError("Provide either a file upload or a youtube_url, not both")
@@ -86,6 +95,7 @@ async def create_project(
             num_shorts_requested=num_shorts_requested,
             burn_subtitles=burn_subtitles,
             use_broll=use_broll,
+            output_layout=output_layout,
         )
         db.add(project)
         db.commit()
@@ -100,6 +110,7 @@ async def create_project(
             num_shorts_requested=num_shorts_requested,
             burn_subtitles=burn_subtitles,
             use_broll=use_broll,
+            output_layout=output_layout,
         )
         db.add(project)
         db.commit()

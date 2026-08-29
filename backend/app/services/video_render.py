@@ -1,16 +1,33 @@
-"""Renders a Short: trims a highlight window, crops/pads to 9:16, and hard-burns subtitles."""
+"""Renders a Short: trims a highlight window, crops/pads to the project's output layout,
+and hard-burns subtitles.
+"""
 import logging
 import tempfile
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+from app.models.project import OutputLayout
 from app.services.ffmpeg_utils import run_ffmpeg
 
 logger = logging.getLogger(__name__)
 
+# Pixel dimensions (width, height) for each selectable output layout.
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1920
+
+LAYOUT_DIMENSIONS: dict[OutputLayout, tuple[int, int]] = {
+    OutputLayout.vertical_9_16: (1080, 1920),
+    OutputLayout.square_1_1: (1080, 1080),
+    OutputLayout.portrait_4_5: (1080, 1350),
+    OutputLayout.landscape_16_9: (1920, 1080),
+    OutputLayout.classic_4_3: (1440, 1080),
+}
+
+
+def get_layout_dimensions(output_layout: OutputLayout) -> tuple[int, int]:
+    """Return the (width, height) pixel dimensions for a given output layout."""
+    return LAYOUT_DIMENSIONS[output_layout]
 
 
 def _format_srt_timestamp(seconds: float) -> str:
@@ -60,20 +77,23 @@ def render_short(
     transcript_segments: list[dict[str, Any]] | None = None,
     burn_subtitles: bool = True,
     broll_clip_paths: list[Path] | None = None,
+    output_layout: OutputLayout = OutputLayout.vertical_9_16,
 ) -> Path:
-    """Render one 9:16, <=60s Short from source_video_path[start_time:end_time].
+    """Render one <=60s Short from source_video_path[start_time:end_time].
 
-    Crops/pads to 9:16, optionally hard-burns subtitles from transcript_segments,
-    and (optionally, minimally) concatenates B-roll clips before the main clip.
+    Crops/pads to the given output_layout (9:16 vertical by default), optionally
+    hard-burns subtitles from transcript_segments, and (optionally, minimally)
+    concatenates B-roll clips before the main clip.
     Synchronous/blocking — must only be called from a background task.
     """
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     duration = min(end_time - start_time, 60.0)
 
+    width, height = get_layout_dimensions(output_layout)
     vf_parts = [
-        "crop='min(iw,ih*9/16)':'min(ih,iw*16/9)'",
-        f"scale={TARGET_WIDTH}:{TARGET_HEIGHT}:force_original_aspect_ratio=increase",
-        f"crop={TARGET_WIDTH}:{TARGET_HEIGHT}",
+        f"crop='min(iw,ih*{width}/{height})':'min(ih,iw*{height}/{width})'",
+        f"scale={width}:{height}:force_original_aspect_ratio=increase",
+        f"crop={width}:{height}",
     ]
 
     srt_tmp_dir = None

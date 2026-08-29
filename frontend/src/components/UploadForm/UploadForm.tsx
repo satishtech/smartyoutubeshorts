@@ -4,11 +4,19 @@ import { AnimatedInput } from '../ui/AnimatedInput';
 import { GradientButton } from '../ui/GradientButton';
 import { ErrorMessage } from '../ui/ErrorMessage';
 import { cn } from '../../lib/utils';
-import type { CreateProjectPayload, ProjectSourceType } from '../../types';
+import type { CreateProjectPayload, OutputLayout, ProjectSourceType } from '../../types';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 const YOUTUBE_URL_PATTERN = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/i;
+
+const OUTPUT_LAYOUT_OPTIONS: { value: OutputLayout; label: string }[] = [
+  { value: 'vertical_9_16', label: '9:16 Vertical (Shorts/Reels/TikTok)' },
+  { value: 'square_1_1', label: '1:1 Square (Instagram/Facebook feed)' },
+  { value: 'portrait_4_5', label: '4:5 Portrait (Instagram feed)' },
+  { value: 'landscape_16_9', label: '16:9 Landscape (YouTube/Twitter)' },
+  { value: 'classic_4_3', label: '4:3 Classic' },
+];
 
 interface UploadFormProps {
   onSubmit: (payload: CreateProjectPayload) => Promise<void>;
@@ -23,6 +31,7 @@ export function UploadForm({ onSubmit, isSubmitting }: UploadFormProps) {
   const [numShorts, setNumShorts] = useState(3);
   const [burnSubtitles, setBurnSubtitles] = useState(true);
   const [useBroll, setUseBroll] = useState(false);
+  const [outputLayout, setOutputLayout] = useState<OutputLayout>('vertical_9_16');
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -68,6 +77,7 @@ export function UploadForm({ onSubmit, isSubmitting }: UploadFormProps) {
       num_shorts_requested: numShorts,
       burn_subtitles: burnSubtitles,
       use_broll: useBroll,
+      output_layout: outputLayout,
       ...(sourceType === 'upload' ? { file: file ?? undefined } : { source_url: sourceUrl.trim() }),
     };
 
@@ -156,6 +166,25 @@ export function UploadForm({ onSubmit, isSubmitting }: UploadFormProps) {
           <span>1</span>
           <span>10</span>
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="output-layout" className="mb-1 block text-sm font-medium text-gray-700">
+          Output layout
+        </label>
+        <select
+          id="output-layout"
+          name="outputLayout"
+          value={outputLayout}
+          onChange={(e) => setOutputLayout(e.target.value as OutputLayout)}
+          className="w-full rounded-xl border-2 border-gray-200 bg-white/5 px-4 py-3 text-gray-800 outline-none transition-colors focus:border-purple-500"
+        >
+          {OUTPUT_LAYOUT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col gap-3">

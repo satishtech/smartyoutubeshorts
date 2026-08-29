@@ -110,3 +110,75 @@ def test_get_project_status(client, auth_headers, project):
     response = client.get(f"/api/projects/{project.id}/status", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["status"] == project.status.value
+
+
+def test_create_project_defaults_to_vertical_9_16(client, auth_headers):
+    response = client.post(
+        "/api/projects",
+        json={"youtube_url": "https://youtu.be/dQw4w9WgXcQ"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["output_layout"] == "vertical_9_16"
+
+
+def test_create_project_with_output_layout_json(client, auth_headers):
+    response = client.post(
+        "/api/projects",
+        json={"youtube_url": "https://youtu.be/dQw4w9WgXcQ", "output_layout": "square_1_1"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["output_layout"] == "square_1_1"
+
+
+def test_create_project_with_output_layout_multipart(client, auth_headers):
+    fake_video = io.BytesIO(b"\x00\x00\x00\x18ftypmp42fake video bytes for testing")
+    response = client.post(
+        "/api/projects",
+        data={"title": "Uploaded", "output_layout": "landscape_16_9"},
+        files={"file": ("clip.mp4", fake_video, "video/mp4")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["output_layout"] == "landscape_16_9"
+
+
+def test_create_project_rejects_invalid_output_layout(client, auth_headers):
+    response = client.post(
+        "/api/projects",
+        json={"youtube_url": "https://youtu.be/dQw4w9WgXcQ", "output_layout": "not_a_real_layout"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+
+
+def test_project_response_does_not_expose_thumbnail_path(client, auth_headers, project):
+    response = client.get(f"/api/projects/{project.id}", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert "thumbnail_path" not in body
+    assert body["has_thumbnail"] is False
+
+
+def test_get_project_thumbnail_not_found(client, auth_headers, project):
+    response = client.get(f"/api/projects/{project.id}/thumbnail", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_get_project_thumbnail_forbidden_for_other_user(client, other_auth_headers, project):
+    response = client.get(f"/api/projects/{project.id}/thumbnail", headers=other_auth_headers)
+    assert response.status_code == 403
+
+
+def test_get_project_thumbnail_streams_when_present(client, auth_headers, db, project, tmp_path):
+    thumb_path = tmp_path / "thumb.jpg"
+    thumb_path.write_bytes(b"fake jpeg bytes")
+    project.thumbnail_path = str(thumb_path)
+    db.add(project)
+    db.commit()
+
+    response = client.get(f"/api/projects/{project.id}/thumbnail", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content == b"fake jpeg bytes"

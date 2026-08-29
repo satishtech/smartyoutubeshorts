@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.exceptions import BadRequestError, ExternalServiceError
+from app.models.project import OutputLayout
 from app.services import broll, highlight_detection, video_render, youtube_import
 from app.services.ffmpeg_utils import run_ffmpeg
 
@@ -165,6 +166,80 @@ def test_render_short_invokes_ffmpeg(tmp_path, monkeypatch):
     assert len(calls) == 1
     assert str(source) in calls[0]
     assert str(dest) in calls[0]
+
+
+@pytest.mark.parametrize(
+    "layout,expected_dims",
+    [
+        (OutputLayout.vertical_9_16, (1080, 1920)),
+        (OutputLayout.square_1_1, (1080, 1080)),
+        (OutputLayout.portrait_4_5, (1080, 1350)),
+        (OutputLayout.landscape_16_9, (1920, 1080)),
+        (OutputLayout.classic_4_3, (1440, 1080)),
+    ],
+)
+def test_get_layout_dimensions(layout, expected_dims):
+    assert video_render.get_layout_dimensions(layout) == expected_dims
+
+
+def test_render_short_defaults_to_vertical_9_16(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.services.video_render.run_ffmpeg", lambda args, timeout=900: calls.append(args)
+    )
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"fake")
+    dest = tmp_path / "out" / "short.mp4"
+
+    video_render.render_short(source, start_time=0.0, end_time=10.0, dest_path=dest, burn_subtitles=False)
+
+    vf_arg = calls[0][calls[0].index("-vf") + 1]
+    assert "scale=1080:1920" in vf_arg
+    assert "crop=1080:1920" in vf_arg
+
+
+@pytest.mark.parametrize(
+    "layout,expected_scale",
+    [
+        (OutputLayout.square_1_1, "scale=1080:1080"),
+        (OutputLayout.portrait_4_5, "scale=1080:1350"),
+        (OutputLayout.landscape_16_9, "scale=1920:1080"),
+        (OutputLayout.classic_4_3, "scale=1440:1080"),
+    ],
+)
+def test_render_short_uses_layout_dimensions(tmp_path, monkeypatch, layout, expected_scale):
+    calls = []
+    monkeypatch.setattr(
+        "app.services.video_render.run_ffmpeg", lambda args, timeout=900: calls.append(args)
+    )
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"fake")
+    dest = tmp_path / "out" / "short.mp4"
+
+    video_render.render_short(
+        source, start_time=0.0, end_time=10.0, dest_path=dest, burn_subtitles=False, output_layout=layout
+    )
+
+    vf_arg = calls[0][calls[0].index("-vf") + 1]
+    assert expected_scale in vf_arg
+
+
+def test_generate_thumbnail_invokes_ffmpeg(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.services.video_render.run_ffmpeg", lambda args, timeout=60: calls.append(args)
+    )
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"fake")
+    dest = tmp_path / "thumb.jpg"
+
+    result = video_render.generate_thumbnail(video, dest, at_seconds=2.0)
+
+    assert result == dest
+    assert len(calls) == 1
+    assert str(video) in calls[0]
+    assert str(dest) in calls[0]
+    assert "2.0" in calls[0]
 
 
 # --- ffmpeg_utils ---------------------------------------------------------------------

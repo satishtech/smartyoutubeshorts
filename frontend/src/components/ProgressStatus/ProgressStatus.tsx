@@ -2,28 +2,8 @@ import { motion } from 'framer-motion';
 import { StatusBadge } from '../ui/StatusBadge';
 import { ErrorMessage } from '../ui/ErrorMessage';
 import { cn } from '../../lib/utils';
+import { PIPELINE_STAGES, STAGE_LABELS } from '../../lib/pipelineStages';
 import type { ProjectStatus } from '../../types';
-
-const PIPELINE_STAGES: ProjectStatus[] = [
-  'pending',
-  'downloading',
-  'transcribing',
-  'detecting_highlights',
-  'ready_for_review',
-  'generating_shorts',
-  'completed',
-];
-
-const STAGE_LABELS: Record<ProjectStatus, string> = {
-  pending: 'Pending',
-  downloading: 'Downloading',
-  transcribing: 'Transcribing',
-  detecting_highlights: 'Analyzing',
-  ready_for_review: 'Ready for Review',
-  generating_shorts: 'Generating Shorts',
-  completed: 'Completed',
-  failed: 'Failed',
-};
 
 const RING_RADIUS = 52;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -126,9 +106,10 @@ export function ProgressStatus({
         </div>
       )}
 
-      {/* Compact stage-by-stage trail */}
+      {/* Compact stage-by-stage trail. Hidden on md+ where PipelineSidebar
+          takes over this role; kept here as the small-viewport fallback. */}
       {!isFailed && (
-        <div className="mt-6 flex flex-wrap items-center gap-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2 md:hidden">
           {PIPELINE_STAGES.filter((s) => s !== 'completed').map((stage, index) => {
             const isDone = currentIndex > index || status === 'completed';
             const isCurrent = currentIndex === index;

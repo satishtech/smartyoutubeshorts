@@ -17,7 +17,11 @@ class ShortResponse(BaseModel):
     duration_seconds: float | None
     has_subtitles: bool
     has_broll: bool
+    has_thumbnail: bool
     status: ShortStatus
+    highlight_title: str | None = None
+    highlight_start_time: float | None = None
+    highlight_end_time: float | None = None
     created_at: datetime
     updated_at: datetime | None
 

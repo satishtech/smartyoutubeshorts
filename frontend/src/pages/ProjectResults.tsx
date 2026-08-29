@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { NavBar } from '../components/layout/NavBar';
+import { PipelineSidebar } from '../components/layout/PipelineSidebar';
 import { GlassCard } from '../components/ui/GlassCard';
 import { GradientButton } from '../components/ui/GradientButton';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
@@ -10,6 +11,7 @@ import { TextReveal } from '../components/ui/TextReveal';
 import { ShortsGrid } from '../components/ShortsGrid/ShortsGrid';
 import { downloadAuthenticatedFile, getProjectDownloadZipUrl, listShorts } from '../services/shortService';
 import { getErrorMessage } from '../services/api';
+import { useProjectStatus } from '../hooks/useProjectStatus';
 import type { Short } from '../types';
 
 const POLL_INTERVAL_MS = 4000;
@@ -23,6 +25,8 @@ export default function ProjectResults() {
   const [error, setError] = useState<string | null>(null);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
+
+  const { status } = useProjectStatus(projectId);
 
   // Mirrors `shorts` so the polling interval always reads the latest
   // value instead of the one captured when the interval was created.
@@ -69,25 +73,31 @@ export default function ProjectResults() {
     <PageWrapper>
       <NavBar />
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <TextReveal as="h1" text="Your Shorts" className="mb-6 text-3xl" />
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          <PipelineSidebar status={status} className="md:sticky md:top-24" />
 
-        <GlassCard>
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Clips Output</p>
-            <GradientButton
-              isLoading={isDownloadingZip}
-              disabled={shorts.every((s) => s.status !== 'ready')}
-              onClick={() => void handleDownloadAll()}
-            >
-              Download All (.zip)
-            </GradientButton>
+          <div className="min-w-0 flex-1">
+            <TextReveal as="h1" text="Your Shorts" className="mb-6 text-3xl" />
+
+            <GlassCard>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Clips Output</p>
+                <GradientButton
+                  isLoading={isDownloadingZip}
+                  disabled={shorts.every((s) => s.status !== 'ready')}
+                  onClick={() => void handleDownloadAll()}
+                >
+                  Download All (.zip)
+                </GradientButton>
+              </div>
+
+              <ErrorMessage message={zipError} />
+              <ErrorMessage message={error} />
+
+              {isLoading ? <Spinner label="Loading your shorts..." /> : <ShortsGrid shorts={shorts} />}
+            </GlassCard>
           </div>
-
-          <ErrorMessage message={zipError} />
-          <ErrorMessage message={error} />
-
-          {isLoading ? <Spinner label="Loading your shorts..." /> : <ShortsGrid shorts={shorts} />}
-        </GlassCard>
+        </div>
       </div>
     </PageWrapper>
   );

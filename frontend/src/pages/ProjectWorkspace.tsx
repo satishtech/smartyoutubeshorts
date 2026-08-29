@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { NavBar } from '../components/layout/NavBar';
+import { PipelineSidebar } from '../components/layout/PipelineSidebar';
 import { GlassCard } from '../components/ui/GlassCard';
 import { GradientButton } from '../components/ui/GradientButton';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
@@ -102,99 +103,105 @@ export default function ProjectWorkspace() {
   return (
     <PageWrapper>
       <NavBar />
-      <div className="mx-auto max-w-4xl px-6 py-10">
-        {isProjectLoading ? (
-          <Spinner label="Loading project..." />
-        ) : projectError ? (
-          <ErrorMessage message={projectError} />
-        ) : (
-          project && <TextReveal as="h1" text={project.title} className="mb-6 text-3xl" />
-        )}
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          <PipelineSidebar status={status} className="md:sticky md:top-24" />
 
-        <GlassCard className="mb-6">
-          <ProgressStatus
-            status={status}
-            statusMessage={statusMessage}
-            error={statusError}
-            highlightsCount={isReviewReady ? highlights.length : undefined}
-            totalRequested={project?.num_shorts_requested}
-            burnSubtitles={project?.burn_subtitles}
-            useBroll={project?.use_broll}
-          />
-        </GlassCard>
+          <div className="min-w-0 flex-1">
+            {isProjectLoading ? (
+              <Spinner label="Loading project..." />
+            ) : projectError ? (
+              <ErrorMessage message={projectError} />
+            ) : (
+              project && <TextReveal as="h1" text={project.title} className="mb-6 text-3xl" />
+            )}
 
-        {isReviewReady && (
-          <>
             <GlassCard className="mb-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-600">Transcript</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowTranscript((v) => !v)}
-                  className="text-xs font-medium text-purple-600 hover:underline"
-                >
-                  {showTranscript ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              {isTranscriptLoading ? (
-                <Spinner label="Loading transcript..." />
-              ) : transcriptError ? (
-                <ErrorMessage message={transcriptError} />
-              ) : (
-                showTranscript &&
-                transcript && (
-                  <div className="max-h-64 overflow-y-auto rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
-                    {transcript.segments.map((segment, index) => (
-                      <p key={index} className="mb-2">
-                        <span className="mr-2 font-mono text-xs text-purple-500">
-                          {Math.floor(segment.start)}s
-                        </span>
-                        {segment.text}
-                      </p>
-                    ))}
+              <ProgressStatus
+                status={status}
+                statusMessage={statusMessage}
+                error={statusError}
+                highlightsCount={isReviewReady ? highlights.length : undefined}
+                totalRequested={project?.num_shorts_requested}
+                burnSubtitles={project?.burn_subtitles}
+                useBroll={project?.use_broll}
+              />
+            </GlassCard>
+
+            {isReviewReady && (
+              <>
+                <GlassCard className="mb-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-600">Transcript</h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowTranscript((v) => !v)}
+                      className="text-xs font-medium text-purple-600 hover:underline"
+                    >
+                      {showTranscript ? 'Hide' : 'Show'}
+                    </button>
                   </div>
-                )
-              )}
-            </GlassCard>
+                  {isTranscriptLoading ? (
+                    <Spinner label="Loading transcript..." />
+                  ) : transcriptError ? (
+                    <ErrorMessage message={transcriptError} />
+                  ) : (
+                    showTranscript &&
+                    transcript && (
+                      <div className="max-h-64 overflow-y-auto rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+                        {transcript.segments.map((segment, index) => (
+                          <p key={index} className="mb-2">
+                            <span className="mr-2 font-mono text-xs text-purple-500">
+                              {Math.floor(segment.start)}s
+                            </span>
+                            {segment.text}
+                          </p>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </GlassCard>
 
-            <GlassCard className="mb-6">
-              <h3 className="mb-3 text-sm font-semibold text-gray-600">
-                Highlight Timeline ({highlights.length}/{project?.num_shorts_requested ?? '-'})
-              </h3>
-              <ErrorMessage message={highlightsError} />
-              {isHighlightsLoading ? (
-                <Spinner label="Loading highlights..." />
-              ) : highlights.length === 0 ? (
-                <div className="flex flex-col items-start gap-3">
-                  <p className="text-sm text-gray-500">No highlight segments detected yet.</p>
-                  <GradientButton
-                    isLoading={isDetecting}
-                    onClick={() => void detectHighlights(project?.num_shorts_requested)}
-                  >
-                    Detect Highlights
-                  </GradientButton>
-                </div>
-              ) : (
-                <Timeline
-                  durationSeconds={project?.duration_seconds ?? 0}
-                  highlights={highlights}
-                  onUpdate={(highlightId, payload) => updateHighlight(highlightId, payload)}
-                  onRemove={removeHighlight}
-                />
-              )}
-            </GlassCard>
+                <GlassCard className="mb-6">
+                  <h3 className="mb-3 text-sm font-semibold text-gray-600">
+                    Highlight Timeline ({highlights.length}/{project?.num_shorts_requested ?? '-'})
+                  </h3>
+                  <ErrorMessage message={highlightsError} />
+                  {isHighlightsLoading ? (
+                    <Spinner label="Loading highlights..." />
+                  ) : highlights.length === 0 ? (
+                    <div className="flex flex-col items-start gap-3">
+                      <p className="text-sm text-gray-500">No highlight segments detected yet.</p>
+                      <GradientButton
+                        isLoading={isDetecting}
+                        onClick={() => void detectHighlights(project?.num_shorts_requested)}
+                      >
+                        Detect Highlights
+                      </GradientButton>
+                    </div>
+                  ) : (
+                    <Timeline
+                      durationSeconds={project?.duration_seconds ?? 0}
+                      highlights={highlights}
+                      onUpdate={(highlightId, payload) => updateHighlight(highlightId, payload)}
+                      onRemove={removeHighlight}
+                    />
+                  )}
+                </GlassCard>
 
-            <ErrorMessage message={generateError} />
-            <GradientButton
-              className="w-full"
-              isLoading={isGenerating}
-              disabled={highlights.length === 0}
-              onClick={() => void handleGenerate()}
-            >
-              Generate Shorts
-            </GradientButton>
-          </>
-        )}
+                <ErrorMessage message={generateError} />
+                <GradientButton
+                  className="w-full"
+                  isLoading={isGenerating}
+                  disabled={highlights.length === 0}
+                  onClick={() => void handleGenerate()}
+                >
+                  Generate Shorts
+                </GradientButton>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </PageWrapper>
   );

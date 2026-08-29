@@ -22,6 +22,10 @@ export function getShortDownloadUrl(shortId: number): string {
   return `${API_BASE_URL}/shorts/${shortId}/download`;
 }
 
+export function getShortThumbnailUrl(shortId: number): string {
+  return `${API_BASE_URL}/shorts/${shortId}/thumbnail`;
+}
+
 export function getProjectDownloadZipUrl(projectId: number): string {
   return `${API_BASE_URL}/projects/${projectId}/download-zip`;
 }

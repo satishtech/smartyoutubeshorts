@@ -107,3 +107,47 @@ def test_download_zip_no_shorts(client, auth_headers, project):
 def test_download_zip_forbidden_for_other_user(client, other_auth_headers, project, ready_short):
     response = client.get(f"/api/projects/{project.id}/download-zip", headers=other_auth_headers)
     assert response.status_code == 403
+
+
+def test_list_shorts_includes_highlight_info_and_has_thumbnail(client, auth_headers, project, ready_short, highlight):
+    response = client.get(f"/api/projects/{project.id}/shorts", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["has_thumbnail"] is False
+    assert body[0]["highlight_title"] == highlight.title
+    assert body[0]["highlight_start_time"] == highlight.start_time
+    assert body[0]["highlight_end_time"] == highlight.end_time
+    assert "file_path" not in body[0]
+    assert "thumbnail_path" not in body[0]
+
+
+def test_get_short_thumbnail_not_found(client, auth_headers, ready_short):
+    response = client.get(f"/api/shorts/{ready_short.id}/thumbnail", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_get_short_thumbnail_forbidden_for_other_user(client, other_auth_headers, ready_short):
+    response = client.get(f"/api/shorts/{ready_short.id}/thumbnail", headers=other_auth_headers)
+    assert response.status_code == 403
+
+
+def test_get_short_thumbnail_missing_returns_404(client, auth_headers):
+    response = client.get("/api/shorts/999999/thumbnail", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_get_short_thumbnail_streams_when_present(client, auth_headers, db, ready_short, tmp_path):
+    thumb_path = tmp_path / "short_thumb.jpg"
+    thumb_path.write_bytes(b"fake short jpeg")
+    ready_short.thumbnail_path = str(thumb_path)
+    db.add(ready_short)
+    db.commit()
+
+    response = client.get(f"/api/shorts/{ready_short.id}/thumbnail", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content == b"fake short jpeg"
+
+    list_response = client.get(f"/api/projects/{ready_short.project_id}/shorts", headers=auth_headers)
+    assert list_response.json()[0]["has_thumbnail"] is True
