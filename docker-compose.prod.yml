@@ -1,6 +1,36 @@
+# Production override for VPS hosts that already run a Traefik reverse proxy
+# (Docker-label discovery, "web"/"websecure" entrypoints, "mytlschallenge"
+# cert resolver) in front of other services on ports 80/443 — this project
+# must not try to bind those ports itself. Instead, the frontend joins the
+# existing Traefik network and is discovered via labels; backend/db are not
+# published to the host at all (frontend's nginx proxies /api internally).
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Set TRAEFIK_NETWORK and DOMAIN in the .env used for this deploy if they
+# differ from the defaults below.
+
 services:
   db:
-    ports: []
+    ports: !reset []
 
   backend:
-    ports: []
+    ports: !reset []
+
+  frontend:
+    ports: !reset []
+    networks:
+      - default
+      - traefik_net
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.smartshorts.rule=Host(`${DOMAIN:-youtube.websathish.tech}`)
+      - traefik.http.routers.smartshorts.tls=true
+      - traefik.http.routers.smartshorts.entrypoints=web,websecure
+      - traefik.http.routers.smartshorts.tls.certresolver=mytlschallenge
+      - traefik.http.services.smartshorts.loadbalancer.server.port=80
+
+networks:
+  traefik_net:
+    external: true
+    name: ${TRAEFIK_NETWORK:-n8n_default}
