@@ -24,6 +24,7 @@ services:
       - traefik_net
     labels:
       - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:-n8n_default}
       - traefik.http.routers.smartshorts.rule=Host(`${DOMAIN:-youtube.websathish.tech}`)
       - traefik.http.routers.smartshorts.tls=true
       - traefik.http.routers.smartshorts.entrypoints=web,websecure
