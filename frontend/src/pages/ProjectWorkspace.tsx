@@ -63,10 +63,12 @@ export default function ProjectWorkspace() {
   const {
     highlights,
     isLoading: isHighlightsLoading,
+    isDetecting,
     error: highlightsError,
     updateHighlight,
     removeHighlight,
     refetch: refetchHighlights,
+    detect: detectHighlights,
   } = useHighlights(projectId);
 
   useEffect(() => {
@@ -163,7 +165,15 @@ export default function ProjectWorkspace() {
               {isHighlightsLoading ? (
                 <Spinner label="Loading highlights..." />
               ) : highlights.length === 0 ? (
-                <p className="text-sm text-gray-500">No highlight segments detected yet.</p>
+                <div className="flex flex-col items-start gap-3">
+                  <p className="text-sm text-gray-500">No highlight segments detected yet.</p>
+                  <GradientButton
+                    isLoading={isDetecting}
+                    onClick={() => void detectHighlights()}
+                  >
+                    Detect Highlights
+                  </GradientButton>
+                </div>
               ) : (
                 <Timeline
                   durationSeconds={project?.duration_seconds ?? 0}

@@ -6,8 +6,10 @@ import type { HighlightSegment, UpdateHighlightPayload } from '../types';
 interface UseHighlightsResult {
   highlights: HighlightSegment[];
   isLoading: boolean;
+  isDetecting: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  detect: () => Promise<void>;
   updateHighlight: (highlightId: number, payload: UpdateHighlightPayload) => Promise<void>;
   removeHighlight: (highlightId: number) => Promise<void>;
 }
@@ -15,6 +17,7 @@ interface UseHighlightsResult {
 export function useHighlights(projectId: number): UseHighlightsResult {
   const [highlights, setHighlights] = useState<HighlightSegment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
@@ -33,6 +36,20 @@ export function useHighlights(projectId: number): UseHighlightsResult {
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  const detect = useCallback(async () => {
+    setIsDetecting(true);
+    setError(null);
+    try {
+      const data = await highlightService.detectHighlights(projectId);
+      setHighlights(data.sort((a, b) => a.order - b.order));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to detect highlights.'));
+      throw err;
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [projectId]);
 
   const updateHighlight = useCallback(
     async (highlightId: number, payload: UpdateHighlightPayload) => {
@@ -67,5 +84,5 @@ export function useHighlights(projectId: number): UseHighlightsResult {
     [projectId, highlights]
   );
 
-  return { highlights, isLoading, error, refetch, updateHighlight, removeHighlight };
+  return { highlights, isLoading, isDetecting, error, refetch, detect, updateHighlight, removeHighlight };
 }
