@@ -1,123 +1,84 @@
-# CLAUDE.md - Project Rules
+# CLAUDE.md - Smart YouTube Shorts Generator
 
-> Rules Claude follows in every conversation.
+## Stack
 
----
+FastAPI + Python 3.11 · React/Vite/TS · PostgreSQL+SQLAlchemy · JWT+Google OAuth · Tailwind+shadcn/ui · ffmpeg/yt-dlp/Whisper/Claude · no payments
 
-## Tech Stack
-
-- **Backend:** FastAPI + Python 3.11+
-- **Frontend:** React + TypeScript + Vite
-- **Database:** PostgreSQL + SQLAlchemy
-- **Auth:** JWT + Google OAuth
-- **UI:** Chakra UI or Tailwind + Framer Motion
-
----
-
-## Project Structure
+## Structure
 
 ```
-project/
-├── backend/
-│   ├── app/
-│   │   ├── main.py, config.py, database.py
-│   │   ├── models/, schemas/, routers/, services/, auth/
-│   ├── alembic/
-│   └── tests/
-├── frontend/
-│   └── src/
-│       ├── components/, pages/, hooks/, services/, context/, types/
-├── skills/           # 5 skill files
-├── agents/           # Agent definitions
-└── .claude/commands/ # /generate-prp, /execute-prp
+backend/app/{main,config,database}.py
+backend/app/models/{user,project,transcript,highlight_segment,short}.py
+backend/app/routers/{auth,projects,transcripts,highlights,shorts}.py
+backend/app/services/{youtube_import,transcription,highlight_detection,video_render,broll}.py
+backend/app/storage/            # gitignored media
+backend/alembic/, backend/tests/
+frontend/src/components/{UploadForm,Timeline,ShortsGrid,ProgressStatus}/
+frontend/src/pages/{Login,Register,Profile,ProjectsDashboard,NewProject,ProjectWorkspace,ProjectResults}.tsx
+frontend/src/{hooks,services,context,types}/
 ```
-
----
 
 ## Code Standards
 
-### Python
-```python
-# Type hints required
-def get_user(db: Session, user_id: int) -> User:
-    pass
-
-# Async endpoints
-@router.get("/users/{id}")
-async def get_user(id: int, db: Session = Depends(get_db)):
-    pass
-```
-
-### TypeScript
-```typescript
-// Interfaces required - NO any types
-interface User { id: number; email: string; }
-
-const fetchUser = async (id: number): Promise<User> => { ... };
-```
-
----
+- Python: type hints required, async endpoints, docstrings on public functions
+- TypeScript: interfaces required, no `any`
+- Long-running media work (ffmpeg/yt-dlp/Whisper/Claude) always via `BackgroundTasks`, never inline in a handler — update `Project.status` as it progresses
 
 ## Forbidden
 
-- `print()` → use `logging`
-- Plain passwords → use bcrypt
-- Hardcoded secrets → use env vars
-- `any` type in TypeScript
-- `console.log` in production
-- Inline styles → use UI framework
+`print()` (use `logging`) · plain passwords (bcrypt) · hardcoded secrets · `any` in TS · `console.log` in prod · inline styles · sync media calls in request handlers · serving `storage/` files without an authenticated, ownership-checked endpoint
 
----
+## Domain Rules
 
-## Workflow
+- Every `Short` ≤60s, 9:16, hard-burned subtitles (no soft-sub track)
+- `HighlightSegment` count ≤ `num_shorts_requested` (1-10), never exceeded
+- Every project/transcript/highlight/short route checks the resource belongs to the requesting user
+- B-roll/music are opt-in toggles, default off
+- No publishing integrations (YouTube/TikTok/Instagram) — download only
 
-```
-1. Edit INITIAL.md (define product)
-2. /generate-prp INITIAL.md
-3. /execute-prp PRPs/[name]-prp.md
-```
+## API Conventions
 
----
+`/api/` prefix, plural nouns. Status codes: 200/201/400/401/403/404/409/422 (422 for `num_shorts` out of 1-10 range).
 
-## Skills
+## Auth
 
-| Task | Skill |
-|------|-------|
-| API + Auth | `skills/BACKEND.md` |
-| React + UI | `skills/FRONTEND.md` |
-| Models | `skills/DATABASE.md` |
-| Tests | `skills/TESTING.md` |
-| Docker | `skills/DEPLOYMENT.md` |
+JWT: access 30min, refresh 7d, HS256. Google OAuth: verify `state` param.
 
----
-
-## Agents
-
-| Agent | Role |
-|-------|------|
-| DATABASE-AGENT | Models + migrations |
-| BACKEND-AGENT | API + auth |
-| FRONTEND-AGENT | UI + pages |
-| DEVOPS-AGENT | Docker + CI/CD |
-
----
-
-## Validation
-
-```bash
-ruff check backend/ && pytest
-npm run lint && npm run type-check
-docker-compose build
-```
-
----
-
-## Environment Variables
+## Env Vars
 
 ```env
-DATABASE_URL=postgresql://user:pass@localhost:5432/db
-SECRET_KEY=your-secret-key
-GOOGLE_CLIENT_ID=xxx
-GOOGLE_CLIENT_SECRET=xxx
+DATABASE_URL=postgresql://user:password@localhost:5432/shorts_generator
+SECRET_KEY=
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+OPENAI_API_KEY=          # Whisper transcription
+ANTHROPIC_API_KEY=       # highlight detection
+PIXABAY_API_KEY=         # optional B-roll
+PEXELS_API_KEY=          # optional B-roll
+STORAGE_DIR=./backend/app/storage
+FFMPEG_BIN=ffmpeg
 VITE_API_URL=http://localhost:8000
 ```
+
+## Commands
+
+```bash
+cd backend && pip install -r requirements.txt && alembic upgrade head && uvicorn app.main:app --reload
+cd frontend && npm install && npm run dev
+docker-compose up -d
+pytest backend/tests -v && cd frontend && npm test
+ruff check backend/ && cd frontend && npm run lint
+```
+
+## Commits
+
+`feat([module]): ...` `fix([module]): ...` `refactor([module]): ...` `test([module]): ...` `docs: ...`
+
+## Agents (essential only)
+
+- **BACKEND-AGENT** — DB models/migrations, auth, all API routes, media pipeline services, backend tests
+- **FRONTEND-AGENT** — pages/components, upload flow, interactive timeline, preview grid, types, frontend tests
+
+No separate DEVOPS/TEST/REVIEW agents — Docker setup, tests, and a security pass are done inline by the two agents above to keep buildathon scope lean.
